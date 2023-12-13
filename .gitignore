@@ -12,3 +12,4 @@ ed/
 *.pkl
 *.pickle
 basins/DEMs/
+data/
