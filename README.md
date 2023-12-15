@@ -1,6 +1,4 @@
-# GlacierLakeDetectionICESat2
-
-NOTE: This repo is private for now. (early testing stage)
+# icelakes-methods
 
 **A repository for automatic supraglacial lake detection and depth deptermination on the ice sheets in ICESat-2 data**
 
