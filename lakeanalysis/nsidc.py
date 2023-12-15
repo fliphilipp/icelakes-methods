@@ -19,9 +19,11 @@ from xml.etree import ElementTree as ET
 from ed.edcreds import getedcreds
 
 ################################################################################
-def download_is2(short_name='ATL03', start_date='2018-01-01', end_date='2030-01-01', uid='userid', pwd='pwd', rgt='all',
-                 boundbox=None, shape=None, vars_sub='all', output_dir='nsidc_outputs', start_time = '00:00:00', end_time = '23:59:59',
-                version=None):
+def download_is2(short_name='ATL03', start_date='2018-01-01', end_date='2030-01-01', uid=None, pwd=None, rgt='all',
+                 boundbox=None, shape=None, vars_sub='all', output_dir='nsidc_outputs', start_time = '00:00:00', end_time = '23:59:59'):
+
+    if (not uid) or (not pwd):
+        uid, pwd, email = getedcreds()
     
     bounding_box = '%.7f,%.7f,%.7f,%.7f' % tuple(boundbox)
 
@@ -34,14 +36,12 @@ def download_is2(short_name='ATL03', start_date='2018-01-01', end_date='2030-01-
     # Get json response from CMR collection metadata
     params = {'short_name': short_name}
     response = requests.get(cmr_collections_url, params=params)
+    #print(response
     results = json.loads(response.content)
 
     # Find all instances of 'version_id' in metadata and print most recent version number
-    if not version:
-        versions = [el['version_id'] for el in results['feed']['entry']]
-        latest_version = max(versions)
-    else:
-        latest_version = version
+    versions = [el['version_id'] for el in results['feed']['entry']]
+    latest_version = max(versions)
     capability_url = f'https://n5eil02u.ecs.nsidc.org/egi/capabilities/{short_name}.{latest_version}.xml'
 
     search_params = {'short_name': short_name, 'version': latest_version, 'temporal': temporal, 'page_size': 100, 'page_num': 1}
@@ -427,19 +427,13 @@ def read_atl03(filename, geoid_h=True, gtxs_to_read='all'):
                                'lon': np.array(f[beam]['heights']['lon_ph']),
                                'h': np.array(f[beam]['heights']['h_ph']),
                                'dt': np.array(f[beam]['heights']['delta_time']),
-                               # 'conf': np.array(f[beam]['heights']['signal_conf_ph'][:,conf_landice]),
-                               # not using ATL03 confidences here
+                               'conf': np.array(f[beam]['heights']['signal_conf_ph'][:,conf_landice]),
                                'mframe': np.array(f[beam]['heights']['pce_mframe_cnt']),
                                'ph_id_pulse': np.array(f[beam]['heights']['ph_id_pulse']),
                                'qual': np.array(f[beam]['heights']['quality_ph'])}) 
                                # 0=nominal,1=afterpulse,2=impulse_response_effect,3=tep
             if 'weight_ph' in f[beam]['heights'].keys():
                 df['weight_ph'] = np.array(f[beam]['heights']['weight_ph'])
-# 
-#             df_bckgrd = pd.DataFrame({'pce_mframe_cnt': np.array(f[beam]['bckgrd_atlas']['pce_mframe_cnt']),
-#                                       'bckgrd_counts': np.array(f[beam]['bckgrd_atlas']['bckgrd_counts']),
-#                                       'bckgrd_int_height': np.array(f[beam]['bckgrd_atlas']['bckgrd_int_height']),
-#                                       'delta_time': np.array(f[beam]['bckgrd_atlas']['delta_time'])})
 
             #### calculate along-track distances [meters from the equator crossing] from segment-level data
             df['xatc'] = np.full_like(df.lat, fill_value=np.nan)

@@ -12,4 +12,8 @@ ed/
 *.pkl
 *.pickle
 basins/DEMs/
-data/
+data/lakes/*
+data/saturation_counts.csv
+data/saturation_counts_methodsdata.csv
+data/saturation_countsonly_alldata.csv
+data/atl03_raw/*
