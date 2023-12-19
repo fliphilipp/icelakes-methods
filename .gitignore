@@ -18,3 +18,5 @@ data/saturation_counts_methodsdata.csv
 data/saturation_countsonly_alldata.csv
 data/atl03_raw/*
 data/FLUIDplots/
+figplots/
+imagery/
