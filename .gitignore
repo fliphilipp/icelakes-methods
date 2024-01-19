@@ -20,3 +20,4 @@ data/atl03_raw/*
 data/FLUIDplots/
 figplots/
 imagery/
+*.DS_Store
