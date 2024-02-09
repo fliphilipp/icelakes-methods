@@ -21,3 +21,4 @@ data/FLUIDplots/
 figplots/
 imagery/
 *.DS_Store
+data/fdm
