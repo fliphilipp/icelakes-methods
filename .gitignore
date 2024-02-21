@@ -21,4 +21,6 @@ data/FLUIDplots/
 figplots/
 imagery/
 *.DS_Store
-data/fdm
+data/fdm/
+data/racmo/
+data/kmls/
