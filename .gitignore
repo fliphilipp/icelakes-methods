@@ -24,3 +24,9 @@ imagery/
 data/fdm/
 data/racmo/
 data/kmls/
+misc/
+detection_out_plot/
+detection_out_data/
+data/validation/melling/
+data/validation/fluidsurrf_out
+success.txt
