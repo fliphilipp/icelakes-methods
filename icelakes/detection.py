@@ -854,9 +854,11 @@ def get_densities_and_2nd_peaks(df, df_mframe, df_selected, gtx, ancillary, aspe
                     dirchange = np.abs(np.diff(np.sign(diffs))) > 1
                     total_distance = 0.0
                     for i,changed in enumerate(dirchange):
-                        if changed: total_distance += (np.abs(diffs)[i] + np.abs(diffs)[i+1])/2
-                    alignment_penalty = 1.0 if total_distance==0 else\
-                                        np.clip(np.clip(h_range, 0.5, None) / (total_distance + np.clip(h_range, 0.5, None)), 0, 1)
+                        # if changed: total_distance += (np.abs(diffs)[i] + np.abs(diffs)[i+1])/2
+                        if changed: total_distance += np.min((np.abs(diffs)[i], np.abs(diffs)[i+1]))
+                    # alignment_penalty = 1.0 if total_distance==0 else\
+                    #                     np.clip(np.clip(h_range, 0.5, None) / (total_distance + np.clip(h_range, 0.5, None)), 0, 1)
+                    alignment_penalty = np.clip(np.clip(h_range, 0.5*n_subsegs, None) / (total_distance + np.clip(h_range, 0.5*n_subsegs, None)), 0, 1)
                     range_penalty = np.clip(1/math.log(np.clip(h_range,1.1,None),5), 0, 1)
                     length_penalty = (len(elev_2ndpeaks) / n_subsegs)**1.5
                     quality_secondreturns = np.clip(np.mean(prominences) * ((np.clip(2*len(elev_2ndpeaks)/n_subsegs, 1, None)-1)*2+1), 0, 1)
@@ -1957,7 +1959,7 @@ class melt_lake:
         evaldf['upper'] = evaldf.h_fit+std_range*evaldf.stdev  # uppper threshold for bed photon density / lower threshold for lake interior 
         evaldf['hrange_bed'] = evaldf.upper - evaldf.lower  # the elevation range over which to calculate bed photon density
         evaldf['hrange_int'] = np.clip((surf_elev - evaldf.upper) * 0.5 , 0.5, None) # the elevation range over which to calculate interior photon density
-        evaldf['upper_int'] = evaldf.h_fit + evaldf.hrange_bed/2 + evaldf.hrange_int # uppper threshold for lake interior photon density
+        evaldf['upper_int'] = evaldf.h_fit + evaldf.hrange_bed/2 + evaldf.hrange_int # upper threshold for lake interior photon density
 
         # initialize photon counts per depth measurement point, and get photon data frame with afterpulses removed
         num_bed = np.zeros_like(evaldf.xatc)
@@ -2010,7 +2012,6 @@ class melt_lake:
         # multiply probability of bed by condifence in measurement
         df.prob_bed *= np.interp(df.xatc, evaldf.xatc, evaldf.conf, left=0.0, right=0.0)
 
-
         # get the overall lake quality
         df_bed = evaldf[(evaldf.h_fit < surf_elev) & (evaldf.h_fit < evaldf.h_fit_surf)].copy()
         nbins = 300
@@ -2031,9 +2032,9 @@ class melt_lake:
         df_dens = pd.DataFrame({'x': np.linspace(-1,2,nbins), 'n': scaled_smooth})
         n_bedpeak = np.interp(0.0, df_dens.x, df_dens.n)
         df_dens_int = df_dens[(df_dens.x > 0) & (df_dens.x < 1)].copy()
-        n_saddle = np.min(df_dens_int.n)
+        # n_saddle = np.min(df_dens_int.n)
         n_saddle = np.mean(df_dens_int.n[df_dens_int.n < np.percentile(df_dens_int.n, 33)])
-        depth_quality = np.clip(n_bedpeak / n_saddle - 2.0, 0, None)
+        depth_quality = np.clip(n_bedpeak / n_saddle - 1.5, 0, None)
 
         evaldf['h_fit_bed'] = evaldf.h_fit
         evaldf['std_bed'] = evaldf.stdev
