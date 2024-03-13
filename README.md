@@ -1,6 +1,16 @@
 # icelakes-methods
 
-**A repository for automatic supraglacial lake detection and depth deptermination on the ice sheets in ICESat-2 data**
+**A repository for:** *"A framework for Automatic Supraglacial Lake Detection and Depth Retrieval From ICESat-2 Photon Data on The Ice Sheets, Using Distributed High-Throughput Computing*
+
+This documents the methodology for a fully automated and scalable algorithm for lake detection and depth determination from ICESat-2 data, and provide a framework for its large-scale implementation using distributed high-throughput computing. We also report resulting depth estimates over Central West Greenland and the Amery Ice Shelf catchment during two melt seasons each, where our method reveals a total of 1248 lakes up to 25 meters deep.
+
+## Some results for the Central West Greenland study region
+for a high-melt (2019) and low-melt (2020) boreal summer
+![result map for two melt seasons in Central West Greenland](plots/results_map_greenland_cw.jpg)
+
+## Some results for the Amery Catchment (Antarctica) study region
+for a high-melt (2018-19) and low-melt (2020-21) austral summer
+![result map for two melt seasons in Central West Greenland](plots/results_map_amery.jpg)
 
 ## Workflow: 
 - Get a user account on the [OSG Open Science Pool](https://osg-htc.org/services/open_science_pool) (free for US-based researchers and their collaborators), or another high-throughput computing platform running HTCondor, that fulfills computing needs
