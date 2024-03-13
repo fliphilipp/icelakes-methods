@@ -10,7 +10,7 @@ for a high-melt (2019) and low-melt (2020) boreal summer
 
 ## Some results for the Amery Catchment (Antarctica) study region
 for a high-melt (2018-19) and low-melt (2020-21) austral summer
-![result map for two melt seasons in Central West Greenland](plots/results_map_greenland_cw.jpg)
+![result map for two melt seasons in Central West Greenland](plots/results_map_amery.jpg)
 
 ## Workflow: 
 - Get a user account on the [OSG Open Science Pool](https://osg-htc.org/services/open_science_pool) (free for US-based researchers and their collaborators), or another high-throughput computing platform running HTCondor, that fulfills computing needs
