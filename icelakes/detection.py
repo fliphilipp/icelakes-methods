@@ -170,7 +170,7 @@ def read_atl03(filename, geoid_h=True, gtxs_to_read='all', clip_shape=None, down
                 'tlm_top_band1': np.array(f[beam]['bckgrd_atlas']['tlm_top_band1']),
                 'tlm_top_band2': np.array(f[beam]['bckgrd_atlas']['tlm_top_band2']),
             })
-            df_tlm = df_tlm.groupby(by='pce_mframe_cnt').mean()
+            df_tlm = df_tlm.groupby(by='pce_mframe_cnt').max()
 
             #### calculate along-track distances [meters from the equator crossing] from segment-level data
             df['xatc'] = np.full_like(df.lat, fill_value=np.nan)
@@ -262,7 +262,7 @@ def make_mframe_df(df, tlm_data):
 
 ##########################################################################################
 # @profile
-def find_flat_lake_surfaces(df_mframe, df, bin_height_coarse=0.2, bin_height_fine=0.01, smoothing_histogram=0.1, buffer=2.0,
+def find_flat_lake_surfaces(df_mframe, df, bin_height_coarse=0.1, bin_height_fine=0.01, smoothing_histogram=0.1, buffer=2.0,
                             width_surf=0.11, width_buff=0.35, rel_dens_upper_thresh=5, rel_dens_lower_thresh=2,
                             min_phot=30, min_snr_surface=10, min_snr_vs_all_above=100):
     
@@ -330,10 +330,10 @@ def find_flat_lake_surfaces(df_mframe, df, bin_height_coarse=0.2, bin_height_fin
                 #             peak_loc1 = hist_mid1[np.argmax(np.histogram(dfseg.h, bins=bins_coarse1)[0])]
                 ##############################################################################################
                 promininece_threshold = 0.1
-                bins_coarse1 = np.arange(start=dfseg.h.min(), stop=dfseg.h.max(), step=bin_height_coarse)
+                bins_coarse1 = np.arange(start=dfseg.h.min()-3, stop=dfseg.h.max()+3, step=bin_height_coarse)
                 hist_mid1 = bins_coarse1[:-1] + 0.5 * bin_height_coarse
                 # broad_hist = np.array(pd.Series(np.histogram(dfseg.h, bins=bins_coarse1)[0]).rolling(3,center=True,min_periods=1).mean())
-                broad_hist = np.array(pd.Series(np.histogram(dfseg.h, bins=bins_coarse1)[0]).rolling(window=10, center=True, min_periods=1, win_type='gaussian').mean(std=2.5))
+                broad_hist = np.array(pd.Series(np.histogram(dfseg.h, bins=bins_coarse1)[0]).rolling(window=10, center=True, min_periods=1, win_type='gaussian').mean(std=1))
                 broad_hist /= np.max(broad_hist)
                 peaks, peak_props = find_peaks(broad_hist, height=promininece_threshold, distance=1.0, prominence=promininece_threshold)
                 peak_hs = hist_mid1[peaks]
@@ -375,6 +375,10 @@ def find_flat_lake_surfaces(df_mframe, df, bin_height_coarse=0.2, bin_height_fin
                     telem_min, telem_max = hmin2, hmax2
                 else:
                     telem_min, telem_max = dfseg.h.min(), dfseg.h.max()
+
+                # add buffer to telemetry window, because sometimes they have odd values
+                telem_min = np.min((telem_min, peak_loc2-30))
+                telem_max = np.max((telem_max, peak_loc2+10))
                 telems_min[i] = telem_min
                 telems_max[i] = telem_max
 
@@ -1410,14 +1414,14 @@ class melt_lake:
 
         
     #-------------------------------------------------------------------------------------
-    def get_surface_elevation(self, search_width=1.0, bin_h=0.005, smoothing=0.1):
+    def get_surface_elevation(self, search_width=1.0, bin_h=0.001, smoothing=0.1):
         selector = (self.photon_data.h < (self.main_peak+search_width)) & (self.photon_data.h > (self.main_peak-search_width))
         heights = self.photon_data.h[selector]
         bins = np.arange(start=self.main_peak-search_width, stop=self.main_peak+search_width, step=bin_h)
         mid = bins[:-1] + 0.5 * bin_h
         hist = np.histogram(heights, bins=bins)
         window_size = int(smoothing/bin_h)
-        hist_vals_smoothed = np.array(pd.Series(hist[0]).rolling(window_size,center=True,min_periods=1).mean())
+        hist_vals_smoothed = np.array(pd.Series(hist[0]).rolling(window_size*3,win_type='gaussian',center=True,min_periods=1).mean(std=window_size/3))
         self.surface_elevation = mid[np.argmax(hist_vals_smoothed)]
 
         
@@ -1437,11 +1441,18 @@ class melt_lake:
         hist_totl = np.histogram(df_totl.xatc, bins=bins)
         max_all = binned_statistic(self.photon_data.xatc, self.photon_data.h, statistic='max', bins=bins)
         min_all = binned_statistic(self.photon_data.xatc, self.photon_data.h, statistic='min', bins=bins)
-        surf_smooth = np.array(pd.Series(hist_surf[0]).rolling(smooth,center=True,min_periods=1).mean())
-        abov_smooth = np.array(pd.Series(hist_abov[0]).rolling(smooth,center=True,min_periods=1).mean())
-        totl_smooth = np.array(pd.Series(hist_totl[0]).rolling(smooth,center=True,min_periods=1).mean())
-        maxs_smooth = np.array(pd.Series(max_all[0]).rolling(smooth,center=True,min_periods=1).max())
-        mins_smooth = np.array(pd.Series(min_all[0]).rolling(smooth,center=True,min_periods=1).min())
+        
+        # instead of using the actual telemetry window heights here, just expand range by at least 10 m elevation
+        max_all = np.clip(max_all[0], self.surface_elevation+surf_width/2+10, None)
+        min_all = np.clip(min_all[0], None, self.surface_elevation-surf_width/2-30, None)
+        surf_smooth = np.array(pd.Series(hist_surf[0]).rolling(smooth*3,win_type='gaussian',center=True,
+                                                               min_periods=1).mean(std=smooth/2))
+        abov_smooth = np.array(pd.Series(hist_abov[0]).rolling(smooth*3,win_type='gaussian',center=True,
+                                                               min_periods=1).mean(std=smooth/2))
+        totl_smooth = np.array(pd.Series(hist_totl[0]).rolling(smooth*3,win_type='gaussian',center=True,
+                                                               min_periods=1).mean(std=smooth/2))
+        maxs_smooth = np.array(pd.Series(max_all).rolling(smooth*3,center=True,min_periods=1).max())
+        mins_smooth = np.array(pd.Series(min_all).rolling(smooth*3,center=True,min_periods=1).min())
         dens_surf = surf_smooth / (surf_width*bin_width)
         dens_abov = abov_smooth / (abov_width*bin_width)
         dens_totl = totl_smooth / ((maxs_smooth-mins_smooth-surf_width)*bin_width)
@@ -1878,7 +1889,7 @@ class melt_lake:
         surffit_selector = (((df.h > (h_surf-0.4)) | (~df.in_extent)) & (df.snr > 0.5)) | ((df.h > (h_surf-0.3)) & (df.h < (h_surf+0.3)))
         df_fit = df[surffit_selector].copy()
         evaldf_surf, df_fit_surf = robust_npreg(df_fit, ext, n_iter=10, poly_degree=1, len_xatc_min=20,
-                                                n_points=[300,100], resolutions=[20,final_resolution], stds=[10,4], ext_buffer=250.0)
+                                                n_points=[300,100], resolutions=[20,final_resolution], stds=[10,4], ext_buffer=210.0)
 
         # re-calculate water surface elevation based on fit
         hist_res = 0.001
@@ -1935,7 +1946,7 @@ class melt_lake:
         npts = [100,50] if self.beam_strength=='weak' else [200,100]
         evaldf, df_fit_bed, xv, hv = robust_npreg(df_nosurf, ext, n_iter=20, poly_degree=3, len_xatc_min=100,
                                                   n_points=npts, resolutions=[20,final_resolution], stds=[10,3], 
-                                                  ext_buffer=200.0, full=True, init=init_guess)
+                                                  ext_buffer=200.0, full=False, init=init_guess)
 
         # add probability of being lake bed for each photon
         df['prob_bed'] = 0
@@ -2005,7 +2016,7 @@ class melt_lake:
         evaldf['conf'] = evaldf.density_ratio * evaldf.width_ratio
 
         # calculate the water depth
-        evaldf['depth'] = np.clip(surf_elev - evaldf.h_fit, 0, None) / 1.333
+        evaldf['depth'] = np.clip(surf_elev - evaldf.h_fit, 0, None) / 1.336
         evaldf.loc[(~evaldf.is_water) & (evaldf.depth > 0.0), 'conf'] = 0.0
         evaldf.loc[~evaldf.is_water, 'depth'] = 0.0
 
@@ -2028,13 +2039,13 @@ class melt_lake:
             counts[i,:] = hist
         
         scaled_hist = np.sum(counts, axis=0)
-        scaled_smooth = pd.Series(scaled_hist).rolling(window=int(nbins/3), win_type='gaussian', min_periods=1, center=True).mean(std=nbins/100)
+        scaled_smooth = pd.Series(scaled_hist).rolling(window=int(nbins/10), win_type='gaussian', min_periods=1, center=True).mean(std=nbins/100)
         df_dens = pd.DataFrame({'x': np.linspace(-1,2,nbins), 'n': scaled_smooth})
         n_bedpeak = np.interp(0.0, df_dens.x, df_dens.n)
         df_dens_int = df_dens[(df_dens.x > 0) & (df_dens.x < 1)].copy()
         # n_saddle = np.min(df_dens_int.n)
-        n_saddle = np.mean(df_dens_int.n[df_dens_int.n < np.percentile(df_dens_int.n, 33)])
-        depth_quality = np.clip(n_bedpeak / n_saddle - 1.5, 0, None)
+        n_saddle = np.mean(df_dens_int.n[df_dens_int.n < np.percentile(df_dens_int.n, 25)])
+        depth_quality = np.clip(n_bedpeak / n_saddle - 2, 0, None)
 
         evaldf['h_fit_bed'] = evaldf.h_fit
         evaldf['std_bed'] = evaldf.stdev
@@ -2093,7 +2104,7 @@ class melt_lake:
         # plot the water depth on second axis (but zero aligned with the lake surface elevation 
         ax2 = ax.twinx()
         p_water_depth = ax2.scatter(dfd.xatc, dfd.depth, s=3, c=[(1, 1-x, 1-x) for x in dfd.conf], label='water depth')
-        yl1 = np.array([surf_elev - 1.5*1.333*dfd.depth.max(), surf_elev + 1.333*dfd.depth.max()])
+        yl1 = np.array([surf_elev - 1.5*1.336*dfd.depth.max(), surf_elev + 1.336*dfd.depth.max()])
         ylms = yl1
         yl2 = yl1 - surf_elev
 
@@ -2290,6 +2301,8 @@ class melt_lake:
             mfdat.create_dataset('alignment_penalty', data=self.mframe_data.alignment_penalty, compression=comp)
             mfdat.create_dataset('range_penalty', data=self.mframe_data.range_penalty, compression=comp)
             mfdat.create_dataset('length_penalty', data=self.mframe_data.length_penalty, compression=comp)
+            mfdat.create_dataset('telem_min', data=self.mframe_data.telem_min, compression=comp)
+            mfdat.create_dataset('telem_max', data=self.mframe_data.telem_max, compression=comp)
 
             scnds = f.create_group('detection_2nd_returns')
             scnds.create_dataset('h', data=np.array(self.detection_2nd_returns['h']), compression=comp)
